@@ -1,5 +1,0 @@
-numpy
-jupyter
-jupyterlab
-torch
-matplotlib
