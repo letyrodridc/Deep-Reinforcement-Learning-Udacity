@@ -28,7 +28,7 @@ class Agent:
         self.state_size = state_size
         self.action_size = action_size
 
-        self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
+        self.memory = ReplayBuffer(BUFFER_SIZE, BATCH_SIZE, random_seed)
 
         self.critic = Critic(state_size, action_size, 17).to(device)
         self.critic_target = Critic(state_size, action_size, 17).to(device)
@@ -77,7 +77,7 @@ class Agent:
 
     def _learn(self, experiences, gamma):
         """ Learns new experiences """
-        
+
         state, action, reward, next_state, dones = experiences 
         ## Update Critic
         # Recovers next action from actor

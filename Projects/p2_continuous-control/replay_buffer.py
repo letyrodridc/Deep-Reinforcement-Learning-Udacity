@@ -1,17 +1,20 @@
 class ReplayBuffer:
     
-    def __init__(self, action_size, buffer_size, batch_size, seed):
-        self.action_size = action_size
+    def __init__(self,  buffer_size, batch_size, seed):
+        """ Creates a replay buffer of buffer_size """
+
         self.memory = deque(maxlen=buffer_size)
         self.batch_size = batch_size
         self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
         random.seed(seed)
 
     def add(self, state, action, reward, next_state, done):
+        """ Adds the experience into the buffer """
         e = self.experience(state, action, reward, next_state, done)
         self.memory.append(e)
 
     def sample(self):
+        """ Get random experiences from the buffer of size batch_size """
         experiences = random.sample(self.memory, k=self.batch_size)
 
         states = torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(device)
@@ -23,4 +26,5 @@ class ReplayBuffer:
         return (states, actions, rewards, next_states, dones)
 
     def __len__(self):
+        """ Returns the quantity of elements stored in the buffer """
         return len(self.memory)

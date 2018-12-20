@@ -12,6 +12,7 @@ def hidden_init(layer):
 class Actor(nn.Module):
 
     def __init__(self, state_size, action_size, seed):
+        """ Initiates a new Actor Network """
         super(Actor, self).__init__()
         self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, 512)
@@ -30,6 +31,7 @@ class Actor(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
+        """ Reset network weights """
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(*hidden_init(self.fc3))
@@ -39,6 +41,7 @@ class Actor(nn.Module):
         self.fc7.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state):
+        """ Performs forward in the Network """
         x = self.fc1_bn(F.relu(self.fc1(state)))
         x = self.fc2_bn(F.relu(self.fc2(x)))
         x = self.fc3_bn(F.relu(self.fc3(x)))
@@ -49,8 +52,10 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
+    """ Creates a Critic Network""" 
 
     def __init__(self, state_size, action_size, seed):
+        """ Initiates a new Critic Network""" 
         super(Critic, self).__init__()
         self.seed = torch.manual_seed(seed)
         self.fcs1 = nn.Linear(state_size, 512)
@@ -63,6 +68,7 @@ class Critic(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
+        """ Starts the weights with random values"""
         self.fcs1.weight.data.uniform_(*hidden_init(self.fcs1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(*hidden_init(self.fc3))
@@ -72,6 +78,7 @@ class Critic(nn.Module):
         self.fc7.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state, action):
+        """Performs NN forward"""
         xs = F.relu(self.fcs1(state))
         x = torch.cat((xs, action), dim=1)
         x = F.relu(self.fc2(x))
