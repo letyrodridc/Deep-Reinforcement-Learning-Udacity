@@ -1,14 +1,14 @@
 #### Leticia Lorena Rodríguez - Decembre 2018 - Deep Reinforcement Learning Nanodegree - Udacity
 
-## Report: Continous Control Project
+## Report: Collaboration and Competition Project
 
 ### Introduction
 
-This project solves the Unity3D environment Rearcher for 20 agents. 
+This project solves the Unity3D environment Tennis. 
 
 ### Solution
 
-It's solve the environment using a DDPG Agent. The agent uses Actor and Critic networks defined in the following way:
+It's solve the environment using a MutipleAgent DDPG. Each agent uses Actor and Critic networks defined in the following way:
 
 ![Net](net.png)
 
@@ -27,28 +27,31 @@ LR_ACTOR = 1e-5         # learning rate of the actor
 LR_CRITIC = 1e-4        # learning rate of the critic
 ```
 
-I've tried with different learning rate but the training just went slow without any increase. 
+In this case, using a MultiAgent, both agents are sharing the Replay Buffer. The learning is performed over both agents experience but the action selection only using the state of the current agent.
 
-Also, I've used 2048 as input and output size in the network without great results.
+As it's indicated in the paper: [Multi-Agent Actor-Critic for Mixed
+Cooperative-Competitive Environments](https://papers.nips.cc/paper/7217-multi-agent-actor-critic-for-mixed-cooperative-competitive-environments.pdf)
 
-I've noticed that learning rate has a strong impact in learning. 
+![MADDPG](maagent.png)
+
+I've tried different batch sizes: 50, 200, 600 but 50 works well. I've noticed that the network definition have a strong impact in learning. The learning rate should also be carefully choosen. 
+
+The random generation have strong impact in results.  
 
 The plot of the rewards is:
 
-![Plot](plot.png)
+![Plot](plot1.png)
 
 
-It's showing that after around 20 episodes the average reward is more than 30 as expected.
+The average reward evolution is:
 
-The project also includes when the solution goes above 30 for the last 100 episodes:
+![Plot](plot2.png)
 
-Average score in the latest 100 episodes: 32.36344927662052
-
-After 101 episodes. 
+Finally, the environment was solved in in episode: 3259 with an avg score: 0.51 .
 
  ### Future work
 
 Some ideas for future work are:
- * Try solving one agent with DDPG
- * Try implementing PPO, A3C, and D4PG
  * Tunning network training: changing learning rates, optimizers, etc.
+ * Try implementing a MultiAgent PPO 
+
