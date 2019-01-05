@@ -1,5 +1,5 @@
 import numpy as np
-import random
+import random 
 import copy
 
 class OUNoise:
@@ -10,6 +10,7 @@ class OUNoise:
         self.mu = mu * np.ones(size)
         self.theta = theta
         self.sigma = sigma
+        self.size = size
         random.seed(seed)
         self.reset()
 
@@ -20,6 +21,7 @@ class OUNoise:
     def sample(self):
         """Update internal state and return it as a noise sample."""
         x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
+        #dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
+        dx = self.theta * (self.mu - x) + self.sigma  * np.random.randn(self.size)
         self.state = x + dx
         return self.state
