@@ -12,7 +12,7 @@ from replay_buffer import ReplayBuffer
 from ounoise import OUNoise
 
 BUFFER_SIZE = 100000  # replay buffer size
-BATCH_SIZE = 200        # minibatch size
+BATCH_SIZE = 50        # minibatch size
 GAMMA = 0.99            # discount factor
 TAU = 0.001             # for soft update of target parameters
 LR_ACTOR = 0.0001        # learning rate of the actor 
@@ -27,34 +27,30 @@ class MADDPG:
     Two Agents - MultiAgent DDPG
     '''
 
-    def __init__(self, state_size, action_size, rand_seed):
+    def __init__(self, agents_qty, state_size, action_size, rand_seed):
 
+        self.agents_qty = agents_qty
         self.memory = ReplayBuffer(BUFFER_SIZE,
-                                   BATCH_SIZE, rand_seed)
-        self.agents_qty = 2
+                                   BATCH_SIZE, rand_seed, agents_qty)
+     
         self.action_size = action_size
         self.state_size = state_size 
-        self.agents = [DDPGAgent(self.state_size,
+        self.agents = [DDPGAgent(i, self.state_size,
                                self.action_size,
                                rand_seed,
                                self)
                          for i in range(self.agents_qty)]
 
     def step(self, states, actions, rewards, next_states, dones):
-        experience = zip(self.agents, states, actions, rewards, next_states,
-                         dones)
-        for i, e in enumerate(experience):
-            agent, state, action, reward, next_state, done = e
-            filter_agents = np.array([j for j in range(self.agents_qty) if j != i])
-            others_states = states[filter_agents]
-            others_actions = actions[filter_agents]
-            others_next_states = next_states[filter_agents]
-            agent.step(state, action, reward, next_state, done, others_states,
-                       others_actions, others_next_states)
+        self.memory.add(states, actions, rewards, next_states, dones)
+
+        for agent in self.agents:
+            agent.step()
 
     def act(self, states, add_noise=True):
         na_rtn = np.zeros([self.agents_qty, self.action_size])
-        for idx, agent in enumerate(self.agents):
+        for agent in self.agents:
+            idx = agent.agent_id
             na_rtn[idx, :] = agent.act(states[idx], add_noise)
         return na_rtn
 
@@ -71,11 +67,12 @@ class MADDPG:
 
 class DDPGAgent:
     '''
-    DDPG Agent
+    DDPG
     '''
 
-    def __init__(self, state_size, action_size, rand_seed, meta_agent):
+    def __init__(self, agent_id, state_size, action_size, rand_seed, meta_agent):
 
+        self.agent_id = agent_id
         self.action_size = action_size
 
         self.actor_local = Actor(state_size, action_size, rand_seed).to(device)
@@ -93,7 +90,7 @@ class DDPGAgent:
                                     rand_seed).to(device)
 
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(),
-                                           lr=LR_CRITIC , weight_decay=WEIGHT_DECAY)
+                                           lr=LR_CRITIC )#, weight_decay=WEIGHT_DECAY)
 
         self.noise = OUNoise(action_size, rand_seed)
 
@@ -101,16 +98,51 @@ class DDPGAgent:
 
         self.t_step = 0
 
-    def step(self, state, action, reward, next_state, done, others_states,
-             others_actions, others_next_states):
-        self.memory.add(state, action, reward, next_state, done, others_states,
-                        others_actions, others_next_states)
-
+    def step(self):
+        
         self.t_step = (self.t_step + 1) % UPDATE_EVERY
         if self.t_step == 0:
             if len(self.memory) > BATCH_SIZE:
                 experiences = self.memory.sample()
                 self.learn(experiences, GAMMA)
+
+    def learn(self, experiences, gamma):
+        (states_list, actions_list, rewards, next_states_list, dones) = experiences
+
+        l_all_next_actions = []
+        for states in states_list:
+            l_all_next_actions.append(self.actor_target(states))
+        
+        all_next_actions = torch.cat(l_all_next_actions, dim=1).to(device)
+        all_next_states = torch.cat(next_states_list, dim=1).to(device)
+        all_states = torch.cat(states_list, dim=1).to(device)
+        all_actions = torch.cat(actions_list, dim=1).to(device)
+
+        
+        Q_targets_next = self.critic_target(all_next_states, all_next_actions)
+        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
+        Q_expected = self.critic_local(all_states, all_actions)
+        critic_loss = F.mse_loss(Q_expected, Q_targets)
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+
+        # --------------------------- update actor ---------------------------
+        actions_pred = []
+        for states in states_list:
+            actions_pred.append(self.actor_local(states))
+        
+        actions_pred = torch.cat(actions_pred, dim=1).to(device)
+        
+
+        actor_loss = -self.critic_local(all_states, actions_pred).mean()
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        self.actor_optimizer.step()
+
+        # ---------------------- update target networks ----------------------
+        self.soft_update(self.critic_local, self.critic_target, TAU)
+        self.soft_update(self.actor_local, self.actor_target, TAU)
 
     def act(self, states, add_noise=True):
         states = torch.from_numpy(states).float().to(device)
@@ -125,41 +157,7 @@ class DDPGAgent:
     def reset(self):
         self.noise.reset()
 
-    def learn(self, experiences, gamma):
-        (states, actions, rewards, next_states, dones, others_states,
-         others_actions, others_next_states) = experiences
 
-        all_states = torch.cat((states, others_states), dim=1).to(device)
-        all_actions = torch.cat((actions, others_actions), dim=1).to(device)
-        all_next_states = torch.cat((next_states, others_next_states), dim=1).to(device)
-
-        # --------------------------- update critic ---------------------------
-        l_all_next_actions = []
-        l_all_next_actions.append(self.actor_target(states))
-        l_all_next_actions.append(self.actor_target(others_states))
-        all_next_actions = torch.cat(l_all_next_actions, dim=1).to(device)
-
-        Q_targets_next = self.critic_target(all_next_states, all_next_actions)
-        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
-        Q_expected = self.critic_local(all_states, all_actions)
-        critic_loss = F.mse_loss(Q_expected, Q_targets)
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        self.critic_optimizer.step()
-
-        # --------------------------- update actor ---------------------------
-        this_actions_pred = self.actor_local(states)
-        others_actions_pred = self.actor_local(others_states)
-        others_actions_pred = others_actions_pred.detach()
-        actions_pred = torch.cat((this_actions_pred, others_actions_pred), dim=1).to(device)
-        actor_loss = -self.critic_local(all_states, actions_pred).mean()
-        self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        self.actor_optimizer.step()
-
-        # ---------------------- update target networks ----------------------
-        self.soft_update(self.critic_local, self.critic_target, TAU)
-        self.soft_update(self.actor_local, self.actor_target, TAU)
 
     def soft_update(self, local_model, target_model, tau):
         iter_params = zip(target_model.parameters(), local_model.parameters())

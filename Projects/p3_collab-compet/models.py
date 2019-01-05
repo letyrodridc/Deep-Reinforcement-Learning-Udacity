@@ -59,7 +59,7 @@ class Critic(nn.Module):
 
     def forward(self, state, action):
         """Performs NN forward"""
-        xs = torch.cat((state, action.float()), dim=1)
+        xs = torch.cat((state, action), dim=1)
         x = F.relu(self.fcs1(xs))
         x = F.relu(self.fc2(x))
         return self.fc3(x)
