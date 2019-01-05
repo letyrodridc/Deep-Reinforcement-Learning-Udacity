@@ -22,6 +22,7 @@ class ReplayBuffer:
         random.seed(seed)
 
     def add(self, state, action, reward, next_state, done):
+        """ Add a new experience to the buffer"""
         e = self.experience(state, action, reward, next_state, done)
         self.memory.append(e)
 
@@ -35,7 +36,7 @@ class ReplayBuffer:
         next_states_list = list()
         dones_list = list()
 
-        
+        # This buffer stores all the agents experiences in a single entry
         for i in range(self.agents_qty):
             idx = np.array([i])
             states = torch.from_numpy(np.vstack([e.states[idx] for e in experiences if e is not None])).float().to(device)
